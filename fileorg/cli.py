@@ -10,7 +10,7 @@ def parse_args():
     )
     parser.add_argument(
         "directory",
-        type=Path,
+        type=validate_path,
         help="The directory to be organized",
     )
     parser.add_argument(
@@ -27,12 +27,17 @@ def parse_args():
         help="Preview changes without moving files",
     )
 
-    if Path(parser.directory).is_dir():
-        print("Directory exists")
-    else:
-        print("Directory does not exist")
-
     return parser.parse_args()
 
 
+def validate_path(path_string) -> Path:
+    path = Path(path_string)
+    if path_string.startswith("~"):
+        path = path.expanduser()
 
+    if not path.exists:
+        raise argparse.ArgumentTypeError(f"directory '{path_string}' does not exist")
+
+    if not path.is_dir():
+        raise argparse.ArgumentTypeError(f"{path_string} is not a directory")
+    return path
