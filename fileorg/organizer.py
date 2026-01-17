@@ -7,6 +7,45 @@ class FileOrganizer:
         self.directory = directory
         self.dry_run = dry_run
 
+    def organize(self):
+        """
+        Organize the files in the directory. Create folders and then move filees into them
+        """
+        if self.dry_run:
+            self.display_summary()
+            return
+
+        print("Creating folders")
+        # Create folders from categories
+        file_result = self.analyze()
+        count = 0
+        for category in file_result["categories_found"]:
+            print(category)
+            # check if the category already exists. If yes then we dont create it
+            if Path(self.directory / category).is_dir():
+                # print(f"Folder: {category} already exists")
+                # print("We will just move files into them")
+                continue
+            Path(self.directory / category).mkdir(exist_ok=True)
+
+        # Move files to folders
+        # print("Moving files to folders")
+        for category, files in file_result["Files"].items():
+            for file in files:
+                try:
+                    # Move the file
+                    count += 1
+                    print(f"Moving {file['name']} to {category}")
+                    print(
+                        f"Moved {count} {'file' if count == 1 else 'files'} out of {file_result['total_files']}"
+                    )
+                    source = Path(file["path"])
+                    destination = Path(self.directory / category / file["name"])
+
+                    source.rename(destination)
+                except Exception as e:
+                    print(f"Error: {e}")
+
     def scan(self) -> list[Path]:
         # Gets all items in the directory
         # filters to only files
@@ -38,14 +77,61 @@ class FileOrganizer:
             }
             grouped_files[category].append(file_info)
 
-        print(
-            {
-                "total_files": len(scanned_files),
-                "total_size": self._human_readable_size(size_in_bytes),
-                "Files": dict(grouped_files),
-                "categories_found": list(grouped_files.keys()),
-            }
-        )
+        return {
+            "total_files": len(scanned_files),
+            "total_size": self._human_readable_size(size_in_bytes),
+            "Files": dict(grouped_files),
+            "categories_found": list(grouped_files.keys()),
+        }
+
+    def display_summary(self):
+        """
+        Display a clean summary of file analysis. When dry_run is True
+
+        """
+        # Get analysis data
+        details = self.analyze()
+
+        # Show header
+
+        print("=" * 50)
+        print("📋 DRY RUN MODE - NO FILES WILL BE MOVED")
+        print("=" * 50)
+
+        # Show overall statistics
+        print("\n📊 Overall Statistics:")
+        print(f"   • Total files: {details['total_files']}")
+        print(f"   • Total size: {details['total_size']}")
+        print(f"   • Categories found: {len(details['categories_found'])}")
+
+        # Show breakdown by category
+        print("\n📂 Breakdown by Category:")
+        print("-" * 40)
+
+        # Get files grouped by category
+        files_by_category = details.get("Files", {})
+
+        for category, file_list in files_by_category.items():
+            # Calculate total size for this category
+            print(f"\n{category.upper()}:")
+            print(f"  Count: {len(file_list)} files")
+
+            # Show file details if verbose mode
+
+            print("Files:")
+            for file_info in file_list[:10]:  # Show first 10 files
+                print(f"    • {file_info['name']} ({file_info['size']})")
+
+            # If more than 10 files, show count
+            if len(file_list) > 10:
+                print(f"    • ... and {len(file_list) - 10} more files")
+
+        # Show what will happen next
+
+        print("\n" + "=" * 50)
+        print("💡 DRY RUN COMPLETE")
+        print("To actually organize files, run without --dry-run flag")
+        print("=" * 50)
 
     def _get_category(self, extension: str) -> str:
         FILE_CATEGORIES = {

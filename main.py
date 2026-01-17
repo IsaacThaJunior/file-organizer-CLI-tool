@@ -7,7 +7,7 @@ def main():
     print(f"✓ Organizing: {args.directory}")
 
     organizer = FileOrganizer(args.directory, args.dry_run)
-    organizer.analyze()
+    organizer.organize()
 
 
 if __name__ == "__main__":
