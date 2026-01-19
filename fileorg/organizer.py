@@ -7,15 +7,24 @@ class FileOrganizer:
         self.directory = directory
         self.dry_run = dry_run
 
-    def organize(self):
-        """
-        Organize the files in the directory. Create folders and then move filees into them
-        """
+    def call_funcs(self):
         if self.dry_run:
             self.display_summary()
             return
 
-        print("Creating folders")
+        self.display_summary()
+        response = input("Are you ready to organize the files? (y/n): ")
+        if response.lower() == "y" or response.lower() == "yes":
+            self.organize()
+            print("✓ Files have been organized")
+        else:
+            print("✗ Files organization cancelled")
+
+    def organize(self):
+        """
+        Organize the files in the directory. Create folders and then move filees into them
+        """
+
         # Create folders from categories
         file_result = self.analyze()
         count = 0
@@ -23,8 +32,8 @@ class FileOrganizer:
             print(category)
             # check if the category already exists. If yes then we dont create it
             if Path(self.directory / category).is_dir():
-                # print(f"Folder: {category} already exists")
-                # print("We will just move files into them")
+                print(f"Folder: {category} already exists")
+                print("We will just move files into them")
                 continue
             Path(self.directory / category).mkdir(exist_ok=True)
 
