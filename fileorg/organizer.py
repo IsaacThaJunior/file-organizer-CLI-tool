@@ -223,31 +223,56 @@ class FileOrganizer:
             json.dump(undo_data, f, indent=4)
 
     def _handle_undo(self):
-        # 1) We check if the logs exists
+        # 1) Check if undo log exists
         undo_file = Path.cwd() / "logs" / "undo.json"
         if not undo_file.exists():
             print("No undo logs found.")
             return
 
-        # 2) If logs exists, we check that the directory passed is the same as the one in the logs
+        # 2) Load undo data
         with open(undo_file, "r") as f:
             undo_data = json.load(f)
 
+        # 3) Verify the undo is for the current directory
         if undo_data["directory"] != str(self.directory):
             print("No action has been taken in this directory to warrant undoing!")
             return
 
+        folders_to_delete = set()
+        moved_files_count = 0
+
+        # 4) Move files back
         for operation in undo_data["operations"]:
             source = Path(operation["destination"])
             destination = Path(operation["source"])
-            original_exists = operation["Original Exists"]
-            folders = operation["Folder moved to"]
-            if original_exists:
-                source.replace(destination)
+            folder_name = operation.get("Folder moved to")
 
-            # Delete the created folders
-            folder_path = Path(self.directory / folders)
-            if folder_path.is_dir():
-                folder_path.rmdir()
+            # Track folders for later deletion
+            if folder_name:
+                folders_to_delete.add(folder_name)
 
-        print(f"Undo complete: {len(undo_data['operations'])} files moved back")
+            try:
+                # Move file back to original location (overwrites if needed)
+                if source.exists():
+                    source.replace(destination)
+                    moved_files_count += 1
+
+                # If the file did not exist originally, remove it
+                else:
+                    print(f"Warning: {source} does not exist, skipping.")
+            except Exception as e:
+                print(f"Error moving {source} back to {destination}: {e}")
+
+
+        # 5) Remove folders (only if empty)
+        for folder in folders_to_delete:
+            folder_path = Path(self.directory / folder)
+            if folder_path.exists():
+                try:
+                    # Only remove if empty
+                    if not any(folder_path.iterdir()):
+                        folder_path.rmdir()
+                except Exception as e:
+                    print(f"Error removing folder {folder_path}: {e}")
+
+        print(f"✓ Undo complete: {moved_files_count} files moved back")
