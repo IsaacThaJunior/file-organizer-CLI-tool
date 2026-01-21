@@ -1,11 +1,14 @@
 from pathlib import Path
 from collections import defaultdict
+import json
+from datetime import datetime
 
 
 class FileOrganizer:
     def __init__(self, directory: Path, dry_run: bool):
         self.directory = directory
         self.dry_run = dry_run
+        self.undo_file_log = []
 
     def call_funcs(self):
         if self.dry_run:
@@ -51,7 +54,8 @@ class FileOrganizer:
                     source = Path(file["path"])
                     destination = Path(self.directory / category / file["name"])
 
-                    source.rename(destination)
+                    # source.rename(destination)
+                    self._move_files_log(source, destination)
                 except Exception as e:
                     print(f"Error: {e}")
 
@@ -188,3 +192,29 @@ class FileOrganizer:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
         return f"{size_bytes:.1f} PB"
+
+    def _move_files_log(self, source, destination):
+        self.undo_file_log.append(
+            {
+                "source": str(source),
+                "destination": str(destination),
+                "Original Exists": source.exists(),
+            }
+        )
+
+        undo_data = {
+            "timestamp": datetime.now().isoformat(),
+            "directory": str(self.directory),
+            "operations": self.undo_file_log,
+        }
+
+        undo_file = Path.cwd() / "logs" / "undo.json"
+        print(undo_file)
+        # Create the directory if it doesn't exist
+        undo_file.parent.mkdir(exist_ok=True, parents=True)
+
+        with open(undo_file, "w") as f:
+            json.dump(undo_data, f, indent=4)
+
+    def _handle_undo(self):
+        pass
