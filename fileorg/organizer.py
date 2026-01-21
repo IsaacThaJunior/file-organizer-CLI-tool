@@ -5,14 +5,19 @@ from datetime import datetime
 
 
 class FileOrganizer:
-    def __init__(self, directory: Path, dry_run: bool):
+    def __init__(self, directory: Path, dry_run: bool, undo: bool):
         self.directory = directory
         self.dry_run = dry_run
         self.undo_file_log = []
+        self.undo = undo
 
     def call_funcs(self):
         if self.dry_run:
             self.display_summary()
+            return
+
+        if self.undo:
+            self._handle_undo()
             return
 
         self.display_summary()
@@ -54,8 +59,8 @@ class FileOrganizer:
                     source = Path(file["path"])
                     destination = Path(self.directory / category / file["name"])
 
-                    # source.rename(destination)
-                    self._move_files_log(source, destination)
+                    source.replace(destination)
+                    self._move_files_log(source, destination, category)
                 except Exception as e:
                     print(f"Error: {e}")
 
@@ -193,12 +198,13 @@ class FileOrganizer:
             size_bytes /= 1024.0
         return f"{size_bytes:.1f} PB"
 
-    def _move_files_log(self, source, destination):
+    def _move_files_log(self, source, destination, category):
         self.undo_file_log.append(
             {
                 "source": str(source),
                 "destination": str(destination),
                 "Original Exists": source.exists(),
+                "Folder moved to": category,
             }
         )
 
@@ -217,4 +223,31 @@ class FileOrganizer:
             json.dump(undo_data, f, indent=4)
 
     def _handle_undo(self):
-        pass
+        # 1) We check if the logs exists
+        undo_file = Path.cwd() / "logs" / "undo.json"
+        if not undo_file.exists():
+            print("No undo logs found.")
+            return
+
+        # 2) If logs exists, we check that the directory passed is the same as the one in the logs
+        with open(undo_file, "r") as f:
+            undo_data = json.load(f)
+
+        if undo_data["directory"] != str(self.directory):
+            print("No action has been taken in this directory to warrant undoing!")
+            return
+
+        for operation in undo_data["operations"]:
+            source = Path(operation["destination"])
+            destination = Path(operation["source"])
+            original_exists = operation["Original Exists"]
+            folders = operation["Folder moved to"]
+            if original_exists:
+                source.replace(destination)
+
+            # Delete the created folders
+            folder_path = Path(self.directory / folders)
+            if folder_path.is_dir():
+                folder_path.rmdir()
+
+        print(f"Undo complete: {len(undo_data['operations'])} files moved back")

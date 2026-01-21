@@ -14,11 +14,10 @@ def parse_args():
         help="The directory to be organized",
     )
     parser.add_argument(
-        "--by",
-        "-b",
-        choices=["type", "date", "size", "name"],
-        default="type",
-        help="Organization strategy",
+        "--undo",
+        "-u",
+        action="store_true",
+        help="Allows you to undo the last action done by the program",
     )
     parser.add_argument(
         "--dry-run",
